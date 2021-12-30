@@ -15,6 +15,12 @@ The packages in this repository implement the ``switch-lan-play`` client on Open
 
 To play with your friends, you and your friends should run the ``switch-lan-play`` client connecting to the **same** server on your PC, and set static IP on your Switch.
 
+## Installation
+
+```bash
+opkg-key add public.key
+```
+
 ## Building
 
 ### Step 1

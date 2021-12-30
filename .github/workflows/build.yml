@@ -3,18 +3,22 @@ name: build
 on:
   push:
     branches: [ master ]
+    tags:
+      - "v*"
   pull_request:
     branches: [ master ]
 
 jobs:
-  build-luci:
+  build:
     name: ${{ matrix.arch }} build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch:
-          - x86_64
-          - armv8
+        include:
+          - arch: x86_64-21.02.1
+            path: x86_64
+          - arch: rockchip-armv8-21.02.1
+            path: aarch64_generic
 
     steps:
       - uses: actions/checkout@v2
@@ -22,14 +26,46 @@ jobs:
           fetch-depth: 0
 
       - name: Build
-        uses: aparcar/action-openwrt-sdk@composite
+        uses: openwrt/gh-action-sdk@v3
         env:
           ARCH: ${{ matrix.arch }}
-          EXTRA_FEEDS: luci-app-switch-lan-play|switch-lan-play
+          KEY_BUILD: ${{ secrets.KEY_BUILD }}
+          FEEDNAME: packages_ci
+          V: s
 
       - name: Store packages
         uses: actions/upload-artifact@v2
+        if: "!startsWith(github.ref, 'refs/tags/')"
         with:
-          name: ${{ matrix.arch}}-packages
-          path: bin/packages/${{ matrix.arch }}/packages/*.ipk
+          name: ${{ matrix.arch }}-packages
+          path: bin/packages/${{ matrix.path }}/packages_ci/*.ipk
 
+      - name: Rename packages
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cp bin/packages/${{ matrix.path }}/packages_ci/*.ipk .
+          sudo apt-get -y install rename
+          rename 's/\.ipk$/-${{ matrix.arch }}.ipk/' *.ipk
+
+      - name: Store release packages
+        uses: actions/upload-artifact@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: ${{ github.ref_name }}
+          path: bin/packages/${{ matrix.path }}/packages_ci/*.ipk
+
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ github.event.release.tag_name }}
+
+      - name: Release packages
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./${{ github.event.release.tag_name }}/*.ipk
