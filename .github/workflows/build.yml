@@ -63,9 +63,9 @@ jobs:
       - name: Download release packages
         uses: actions/download-artifact@v2
         with:
-          name: ${{ github.event.release.tag_name }}
+          name: ${{ github.ref_name }}
 
       - name: Release packages
         uses: softprops/action-gh-release@v1
         with:
-          files: ./${{ github.event.release.tag_name }}/*.ipk
+          files: "*.ipk"
